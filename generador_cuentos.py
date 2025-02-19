@@ -1,65 +1,121 @@
+"""
+Generador de Cuentos con LangChain 📚
+Este script usa LangChain de manera asíncrona para generar cuentos interactivos,
+manteniendo la coherencia de la historia usando un historial de mensajes.
+"""
+
+import asyncio
 import config
-from openai import OpenAI
+from langchain_openai import ChatOpenAI
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import AIMessage
+from langchain_core.runnables import RunnableWithMessageHistory
+from langchain_community.chat_message_histories import ChatMessageHistory
 
-cliente = OpenAI(api_key=config.OPENAI_API_KEY)
+# 1. Configuración del modelo de lenguaje
+def crear_modelo():
+    """Crea y configura el modelo de ChatOpenAI."""
+    return ChatOpenAI(
+        api_key=config.OPENAI_API_KEY,
+        model="gpt-4o-2024-08-06",
+        temperature=0.8  # Mayor temperatura = más creatividad
+    )
 
-def dame_los_dialogos(texto):
-    prompt = f"""
-    # Analiza el siguiente texto:
-    {texto}
+# 2. Configuración del prompt
+def crear_prompt():
+    """Crea el template del prompt con el sistema y el historial."""
+    return ChatPromptTemplate.from_messages([
+        # Instrucciones para el modelo
+        ("system", """
+        Eres un narrador muy creativo que:
+        - Escribe historias con mucho diálogo
+        - Describe brevemente a los personajes
+        - Hace que animales y objetos puedan hablar
+        - Mantiene coherencia con las partes anteriores de la historia
+        """),
+        # Placeholder para el historial de la conversación
+        MessagesPlaceholder(variable_name="history"),
+        # Input del usuario
+        ("human", "{input}")
+    ])
 
-    # Obten los dialogos del texto con sus respectivos personajes en el siguiente formato en orden:
-    [personaje]: "dialogo"
+# 3. Configuración de la cadena con historial
+def crear_cadena_con_historial(modelo, prompt):
+    """Crea una cadena que mantiene el historial de la conversación."""
+    # Crear la cadena básica
+    cadena = prompt | modelo
+    
+    # Crear el historial de mensajes
+    historial = ChatMessageHistory()
+    
+    # Crear la cadena con historial
+    return RunnableWithMessageHistory(
+        cadena,
+        lambda session_id: historial,
+        input_messages_key="input",
+        history_messages_key="history"
+    ), historial
 
-    # Ejemplo:
-    [Juan]: "Hola, ¿como estas?"
-    [Maria]: "Bien, gracias. ¿Y tu?"
-    [Juan]: "Tambien estoy bien, gracias."
+async def generar_cuento(cadena, trama: str = "", maximo_tokens: int = 500) -> str:
     """
-    respuesta = cliente.chat.completions.create(
-        #model="o3-mini-2025-01-31",
-        model="gpt-4o-2024-08-06",
-        messages=[
-            {"role": "system", "content": "Eres un experto lector y analista que entiendes libros, cuentos y preparas dialogos para el cine."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.5, # controla la creatividad
+    Genera una parte del cuento basado en la trama proporcionada.
+    
+    Args:
+        cadena: La cadena de LangChain con historial
+        trama: La trama para continuar la historia
+        maximo_tokens: Longitud máxima de la respuesta
+    
+    Returns:
+        str: La siguiente parte del cuento
+    """
+    config = {
+        "configurable": {
+            "session_id": "story_session",
+            "max_tokens": maximo_tokens
+        }
+    }
+    
+    # Usar ainvoke para llamada asíncrona
+    response = await cadena.ainvoke(
+        {"input": f"Continúa o comienza el cuento basado en esta trama: {trama}"},
+        config
     )
-    return respuesta.choices[0].message.content
+    return response.content
 
-def generar_cuento(memoria="", trama="", maximo=500):
-    prompt = """
-    # Escribe un cuento basado en la siguiente trama:
-    {trama}
-
-    # El cuento comienza así:
-    {memoria}
-    """.format(trama=trama, memoria=memoria, maximo_palabras=maximo)
-
-    respuesta = cliente.chat.completions.create(
-        #model="o3-mini-2025-01-31",
-        model="gpt-4o-2024-08-06",
-        messages=[
-            {"role": "system", "content": "Eres un narrador muy creativo, te encanta escribir historias con mucho dialogo, siempre describiendo brevemente a los personajes primero. En tus historias los animales y objetos inanimados hablan con palabras humanas."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.8, # controla la creatividad
-        max_tokens=maximo # longitud maxima del cuento/trozo
-    )
-    return respuesta.choices[0].message.content
-
-if __name__ == "__main__":
-    print("Generador de Cuentos con IA ✨")
-    cuento = ""
+async def main():
+    """Función principal asíncrona que ejecuta el generador de cuentos."""
+    # Inicializar componentes
+    modelo = crear_modelo()
+    prompt = crear_prompt()
+    cadena, historial = crear_cadena_con_historial(modelo, prompt)
+    
+    print("🌟 Generador de Cuentos con IA 📚")
+    print("Escribe las tramas de tu historia. El modelo irá generando el cuento parte por parte.")
+    print("Para terminar, escribe 'salir'")
+    print("-" * 50)
+    
+    # Loop principal
     while True:
-        trama = input("Escribe la trama de tu cuento (o escribe 'salir' para terminar):")
+        trama = input("\n✍️  Como sigue tu trama: ")
         if trama.lower() == "salir":
             break
-        parte = generar_cuento(cuento, trama)
-        print(f"\n✨ Aqui esta la parte del cuento:\n{parte}")
-        cuento += parte
+        
+        # Esperar la respuesta asíncrona
+        print("\n⌛ Generando...", end="", flush=True)
+        parte = await generar_cuento(cadena, trama)
+        print("\r", end="")  # Limpiar el mensaje de "Generando..."
+        print(f"\n📝 Nueva parte del cuento:\n{parte}\n")
+        print("-" * 50)
 
-    print("\n\n✨ Aqui esta el cuento completo:\n")
-    print(cuento)
-    dialogos = dame_los_dialogos(cuento)
-    print("\n\n✨ Aqui estan los dialogos del cuento:\n", dialogos)
+    # Mostrar historia completa
+    print("\n📚 Historia completa:\n")
+    historia_completa = "\n".join([
+        msg.content 
+        for msg in historial.messages 
+        if isinstance(msg, AIMessage)
+    ])
+    print(historia_completa)
+
+if __name__ == "__main__":
+    # Ejecutar el loop de eventos de asyncio
+    asyncio.run(main())
