@@ -1,20 +1,24 @@
 import config
+import instructor
 from openai import OpenAI
+from pydantic import BaseModel, Field
 
-cliente = OpenAI(api_key=config.OPENAI_API_KEY)
+openai_bruto = OpenAI(api_key=config.OPENAI_API_KEY)
+cliente = instructor.from_openai(openai_bruto)
+
+class Dialogo(BaseModel):
+    personaje: str = Field(description="El personaje que habla")
+    texto: str = Field(description="El texto del dialogo")
+
+class ListaDialogos(BaseModel):
+    dialogos: list[Dialogo] = Field(description="Lista de dialogos con sus respectivos personajes")
 
 def dame_los_dialogos(texto):
     prompt = f"""
     # Analiza el siguiente texto:
     {texto}
 
-    # Obten los dialogos del texto con sus respectivos personajes en el siguiente formato en orden:
-    [personaje]: "dialogo"
-
-    # Ejemplo:
-    [Juan]: "Hola, ¿como estas?"
-    [Maria]: "Bien, gracias. ¿Y tu?"
-    [Juan]: "Tambien estoy bien, gracias."
+    # Obten los dialogos del texto con sus respectivos personajes
     """
     respuesta = cliente.chat.completions.create(
         #model="o3-mini-2025-01-31",
@@ -23,9 +27,10 @@ def dame_los_dialogos(texto):
             {"role": "system", "content": "Eres un experto lector y analista que entiendes libros, cuentos y preparas dialogos para el cine."},
             {"role": "user", "content": prompt},
         ],
+        response_model=ListaDialogos,
         temperature=0.5, # controla la creatividad
     )
-    return respuesta.choices[0].message.content
+    return respuesta
 
 def generar_cuento(memoria="", trama="", maximo=500):
     prompt = """
