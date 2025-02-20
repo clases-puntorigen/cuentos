@@ -46,9 +46,11 @@ pydantic==2.10.6
 pydantic-settings==2.7.1
 pydantic_core==2.27.2
 Pygments==2.19.1
+pyngrok==7.2.3
 python-dotenv==1.0.1
 PyYAML==6.0.2
 regex==2024.11.6
+replicate==1.0.4
 requests==2.32.3
 requests-toolbelt==1.0.0
 rich==13.9.4

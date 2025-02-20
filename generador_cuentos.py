@@ -1,17 +1,14 @@
-import config
-import instructor
-from openai import OpenAI
+from ia import cliente, cliente_viejo
 from pydantic import BaseModel, Field
 from typing import List, Literal
-
-cliente_viejo = OpenAI(api_key=config.OPENAI_API_KEY)
-cliente = instructor.from_openai(cliente_viejo)
+from generar_audio import eligir_voz, generar_audio
 
 class Personaje(BaseModel):
     nombre: str = Field(description="El nombre del personaje")
     edad: int = Field(..., gt=0, description="La edad del personaje")
     descripcion: str = Field(..., description="La descripcion del personaje")
     rol: str = Field(..., description="El rol en la historia (heroe, villano, mentor, etc.)")
+    voz: str = Field(..., description="Describa la voz")
 
 def obtener_personajes() -> List[Personaje]:
     personajes = []
@@ -23,8 +20,10 @@ def obtener_personajes() -> List[Personaje]:
         edad = int(input("Edad del personaje:"))
         descripcion = input("Descripcion del personaje:")
         rol = input("Rol del personaje:")
+        # generamos la descripcion de la voz con IA
+        voz = eligir_voz(f"{nombre} es un {rol} de {edad} años. {descripcion}")
         try:
-            personaje = Personaje(nombre=nombre, edad=edad, descripcion=descripcion, rol=rol)
+            personaje = Personaje(nombre=nombre, edad=edad, descripcion=descripcion, rol=rol, voz=voz)
             personajes.append(personaje)
             print(f"Personaje agregado: {personaje.model_dump_json()}")
         except ValueError as e:
@@ -69,7 +68,6 @@ def generar_cuento(personajes, memoria="", trama="", maximo=500):
         texto_personajes += f"{personaje.nombre} es un {personaje.rol} de {personaje.edad} años. {personaje.descripcion}\n"
 
     #texto_personajes = "\n".join([f"{p.nombre} es un {p.rol} de {p.edad} años. {p.descripcion}\n" for p in personajes])
-
     prompt = f"""
     # La historia comienza con los siguientes personajes:
     {texto_personajes}
@@ -96,6 +94,7 @@ def generar_cuento(personajes, memoria="", trama="", maximo=500):
 if __name__ == "__main__":
     print("Generador de Cuentos con IA ✨")
     personajes = obtener_personajes()
+    personajes_dict = {p.nombre: p for p in personajes}
     cuento = ""
     while True:
         trama = input("Escribe la trama de tu cuento (o escribe 'salir' para terminar):")
@@ -107,7 +106,13 @@ if __name__ == "__main__":
 
     print("\n\n✨ Aqui esta el cuento completo:\n")
     print(cuento)
-    dialogos = dame_los_dialogos(cuento)
-    print("\n\n✨ Aqui estan la historia estructurada del cuento:\n", dialogos)
-    #for dialogo in dialogos.dialogos:
-    #    print(f"Personaje: {dialogo.personaje}\nDice: {dialogo.texto}")
+    fragmentos = dame_los_dialogos(cuento)
+    print("\n\n✨ Aqui estan la historia estructurada del cuento:\n", fragmentos)
+    print("**"*20)
+    # enumate dialogos
+    for i, fragmento in enumerate(fragmentos.fragmentos[0].eventos):
+        print(f"\n✨ Procesando la parte {i+1}:\n")
+        if fragmento.personaje:
+            generar_audio("voces/"+personajes_dict[fragmento.personaje].voz, fragmento.contenido, f"audios/parte_{i+1}.wav")
+        else:
+            generar_audio("voces/narrador1.mp3", fragmento.contenido, f"audios/parte_{i+1}.wav")
