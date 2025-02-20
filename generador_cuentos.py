@@ -112,7 +112,13 @@ if __name__ == "__main__":
     # enumate dialogos
     for i, fragmento in enumerate(fragmentos.fragmentos[0].eventos):
         print(f"\n✨ Procesando la parte {i+1}:\n")
-        if fragmento.personaje:
+        if fragmento.personaje and fragmento.personaje in personajes_dict:
             generar_audio("voces/"+personajes_dict[fragmento.personaje].voz, fragmento.contenido, f"audios/parte_{i+1}.wav")
+        elif fragmento.personaje and fragmento.personaje not in personajes_dict:
+            # el personaje puede no haber sido agregado por el usuario; tenemos que inventarle una voz
+            print("⚠️ El personaje", fragmento.personaje, "no se ha agregado. Le inventaremos una voz.")
+            voz = eligir_voz(f"{fragmento.personaje} dice {fragmento.contenido}")
+            personajes_dict[fragmento.personaje] = Personaje(nombre=fragmento.personaje, edad=100, descripcion="", rol="secundario", voz=voz)
+            generar_audio("voces/"+voz, fragmento.contenido, f"audios/parte_{i+1}.wav")
         else:
             generar_audio("voces/narrador1.mp3", fragmento.contenido, f"audios/parte_{i+1}.wav")
