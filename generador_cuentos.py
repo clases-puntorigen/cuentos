@@ -21,7 +21,7 @@ def obtener_personajes() -> List[Personaje]:
         descripcion = input("Descripcion del personaje:")
         rol = input("Rol del personaje:")
         # generamos la descripcion de la voz con IA
-        voz = eligir_voz(f"{nombre} es un {rol} de {edad} años. {descripcion}")
+        voz = eligir_voz(f"{nombre} es un {rol} de {edad} años. {descripcion}", personajes)
         try:
             personaje = Personaje(nombre=nombre, edad=edad, descripcion=descripcion, rol=rol, voz=voz)
             personajes.append(personaje)
@@ -117,7 +117,7 @@ if __name__ == "__main__":
         elif fragmento.personaje and fragmento.personaje not in personajes_dict:
             # el personaje puede no haber sido agregado por el usuario; tenemos que inventarle una voz
             print("⚠️ El personaje", fragmento.personaje, "no se ha agregado. Le inventaremos una voz.")
-            voz = eligir_voz(f"{fragmento.personaje} dice {fragmento.contenido}")
+            voz = eligir_voz(f"{fragmento.personaje} dice {fragmento.contenido}", personajes)
             personajes_dict[fragmento.personaje] = Personaje(nombre=fragmento.personaje, edad=100, descripcion="", rol="secundario", voz=voz)
             generar_audio("voces/"+voz, fragmento.contenido, f"audios/parte_{i+1}.wav")
         else:
