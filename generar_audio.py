@@ -15,6 +15,8 @@ def eligir_voz(prompt="", personajes=None):
         personajes_dict = {p.nombre: p.voz for p in personajes}
     # obtenemos lista de archivos .mp3 en carpeta 'voces' y hacemos una lista
     archivos = os.listdir("voces")
+    # exclude the 'narrator.mp3' file from archivos
+    archivos = [archivo for archivo in archivos if archivo != "narrator.mp3"]
     archivos_mp3 = "\n".join([archivo for archivo in archivos if archivo.endswith(".mp3")])
     prompt = f"""
 # elige uno de los siguientes archivos .mp3:
@@ -41,15 +43,15 @@ def eligir_voz(prompt="", personajes=None):
 def generar_audio(voz:str = "voces/narrador1.mp3", texto:str = "Hola", archivo:str = "output.wav"):
     with exposeRemote(voz) as narrador:
         output = replicate.run(
-            "ttsds/openvoice_2:795fe9c3fc9d3d4cfac1ca97d8c8d33b522b42068daec53ab3c74f775dd506c8",
-            #"chenxwh/openvoice:d548923c9d7fc9330a3b7c7f9e2f91b2ee90c83311a351dfcd32af353799223d",
+            #"ttsds/openvoice_2:795fe9c3fc9d3d4cfac1ca97d8c8d33b522b42068daec53ab3c74f775dd506c8",
+            "chenxwh/openvoice:d548923c9d7fc9330a3b7c7f9e2f91b2ee90c83311a351dfcd32af353799223d",
             input={
-                #"audio": narrador,
-                "speaker_reference": narrador,
+                "audio": narrador,
+                #"speaker_reference": narrador,
                 "text": texto,
-                #"language": "ES",
-                "language": "es",
-                #"speed": 1
+                "language": "ES",
+                #"language": "es",
+                "speed": 1
             },
         )
     with open(archivo, "wb") as file:

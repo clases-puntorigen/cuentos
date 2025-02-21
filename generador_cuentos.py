@@ -2,6 +2,7 @@ from ia import cliente, cliente_viejo
 from pydantic import BaseModel, Field
 from typing import List, Literal
 from generar_audio import eligir_voz, generar_audio
+from utils.audio import AudioMerger
 
 class Personaje(BaseModel):
     nombre: str = Field(description="El nombre del personaje")
@@ -91,6 +92,35 @@ def generar_cuento(personajes, memoria="", trama="", maximo=500):
     )
     return respuesta.choices[0].message.content
 
+def generar_audio_cuento(fragmentos, personajes_dict):
+    """Genera los archivos de audio para cada fragmento del cuento"""
+    archivos_wav = []  # Lista para guardar las rutas de los archivos generados
+    
+    for i, fragmento in enumerate(fragmentos):
+        archivo_salida = f"audios/parte_{i+1}.wav"
+        archivos_wav.append(archivo_salida)
+        
+        if not fragmento.personaje:
+            # es narración
+            generar_audio("voces/narrator.mp3", fragmento.contenido, archivo_salida)
+        elif fragmento.personaje and fragmento.personaje not in personajes_dict:
+            # el personaje puede no haber sido agregado por el usuario; tenemos que inventarle una voz
+            print("⚠️ El personaje", fragmento.personaje, "no se ha agregado. Le inventaremos una voz.")
+            voz = eligir_voz(f"{fragmento.personaje} dice {fragmento.contenido}", personajes)
+            personajes_dict[fragmento.personaje] = Personaje(nombre=fragmento.personaje, edad=100, descripcion="", rol="secundario", voz=voz)
+            generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)
+        else:
+            # es un personaje que ya existe
+            voz = personajes_dict[fragmento.personaje].voz
+            generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)
+    
+    # Unir todos los archivos de audio con silencios entre ellos
+    print("🔊 Uniendo archivos de audio...")
+    merger = AudioMerger(silence_duration=1.0)  # 1 segundo de silencio entre fragmentos
+    merger.merge_wav_files(archivos_wav, "audios/cuento_completo.wav")
+    duracion = AudioMerger.get_audio_length("audios/cuento_completo.wav")
+    print(f"✅ Audio generado! Duración total: {duracion:.1f} segundos")
+
 if __name__ == "__main__":
     print("Generador de Cuentos con IA ✨")
     personajes = obtener_personajes()
@@ -109,16 +139,4 @@ if __name__ == "__main__":
     fragmentos = dame_los_dialogos(cuento)
     print("\n\n✨ Aqui estan la historia estructurada del cuento:\n", fragmentos)
     print("**"*20)
-    # enumate dialogos
-    for i, fragmento in enumerate(fragmentos.fragmentos[0].eventos):
-        print(f"\n✨ Procesando la parte {i+1}:\n")
-        if fragmento.personaje and fragmento.personaje in personajes_dict:
-            generar_audio("voces/"+personajes_dict[fragmento.personaje].voz, fragmento.contenido, f"audios/parte_{i+1}.wav")
-        elif fragmento.personaje and fragmento.personaje not in personajes_dict:
-            # el personaje puede no haber sido agregado por el usuario; tenemos que inventarle una voz
-            print("⚠️ El personaje", fragmento.personaje, "no se ha agregado. Le inventaremos una voz.")
-            voz = eligir_voz(f"{fragmento.personaje} dice {fragmento.contenido}", personajes)
-            personajes_dict[fragmento.personaje] = Personaje(nombre=fragmento.personaje, edad=100, descripcion="", rol="secundario", voz=voz)
-            generar_audio("voces/"+voz, fragmento.contenido, f"audios/parte_{i+1}.wav")
-        else:
-            generar_audio("voces/narrador1.mp3", fragmento.contenido, f"audios/parte_{i+1}.wav")
+    generar_audio_cuento(fragmentos.fragmentos[0].eventos, personajes_dict)
