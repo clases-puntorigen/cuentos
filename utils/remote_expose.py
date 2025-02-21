@@ -63,14 +63,14 @@ class ServerManager:
                     logger.debug(f"Server error: {e}")
         logger.debug("Server stopped")
 
-    def start_server(self):
+    def start_server(self, handler_class=None):
         with self._server_lock:
             if self._server is not None:
                 return
 
             try:
                 logger.info("Starting server...")
-                handler = SimpleHTTPRequestHandlerNoListing
+                handler = handler_class if handler_class else SimpleHTTPRequestHandlerNoListing
                 self._server = NonBlockingTCPServer(("", self.PORT), handler)
                 self._server_thread = threading.Thread(target=self.serve_forever, 
                                                     args=(self._server,))
@@ -138,6 +138,10 @@ class ServerManager:
                 self.cleanup()
 
 class SimpleHTTPRequestHandlerNoListing(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, directory=None, **kwargs):
+        self._directory = directory
+        super().__init__(*args, directory=directory, **kwargs)
+
     def do_GET(self):
         if self.path == '/':
             self.send_error(403, "Directory listing forbidden")
@@ -164,16 +168,20 @@ def exposeRemote(filepath: str):
         raise FileNotFoundError(f"File {filepath} not found")
     
     logger.info(f"Exposing file: {filepath}")
-    original_dir = os.getcwd()
     file_dir = os.path.dirname(os.path.abspath(filepath))
     filename = os.path.basename(filepath)
     
     manager = ServerManager()
     
     try:
-        os.chdir(file_dir)
+        def handler(*args, **kwargs):
+            return SimpleHTTPRequestHandlerNoListing(*args, directory=file_dir, **kwargs)
+        
         manager.increment_ref()
-        manager.start_server()
+        # Override the handler creation in start_server
+        original_handler = manager._server.RequestHandlerClass if manager._server else None
+        manager._server = None  # Force recreation of server with new handler
+        manager.start_server(handler_class=handler)
         manager.start_ngrok()
         
         file_url = manager.get_file_url(filename)
@@ -183,6 +191,8 @@ def exposeRemote(filepath: str):
             yield file_url
         finally:
             manager.decrement_ref()
-            
-    finally:
-        os.chdir(original_dir)
+            if original_handler and manager._server:
+                manager._server.RequestHandlerClass = original_handler
+    except Exception as e:
+        logger.error(f"Error exposing file: {e}")
+        raise
