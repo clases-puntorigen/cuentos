@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from typing import List, Literal
 from generar_audio import eligir_voz, generar_audio
 from utils.audio import AudioMerger
+import asyncio
 
 class Personaje(BaseModel):
     nombre: str = Field(description="El nombre del personaje")
@@ -22,7 +23,8 @@ def obtener_personajes() -> List[Personaje]:
         descripcion = input("Descripcion del personaje:")
         rol = input("Rol del personaje:")
         # generamos la descripcion de la voz con IA
-        voz = eligir_voz(f"{nombre} es un {rol} de {edad} años. {descripcion}", personajes)
+        personajes_dict = {p.nombre: p for p in personajes}
+        voz = eligir_voz(f"{nombre} es un {rol} de {edad} años. {descripcion}", personajes_dict)
         try:
             personaje = Personaje(nombre=nombre, edad=edad, descripcion=descripcion, rol=rol, voz=voz)
             personajes.append(personaje)
@@ -84,7 +86,7 @@ def generar_cuento(personajes, memoria="", trama="", maximo=500):
         #model="o3-mini-2025-01-31",
         model="gpt-4o-2024-11-20",
         messages=[
-            {"role": "system", "content": "Eres un narrador muy creativo, te encanta escribir historias con mucho dialogo, siempre describiendo brevemente a los personajes primero y luego describiendo la escena entre 2-3 dialogos. En tus historias los animales y objetos inanimados hablan con palabras humanas llenas de sabiduría. No "},
+            {"role": "system", "content": "Eres un narrador muy creativo, te encanta escribir historias con mucho dialogo, siempre describiendo brevemente a los personajes primero y luego describiendo la escena entre 2-3 dialogos. En tus historias los animales y objetos inanimados hablan con palabras humanas llenas de sabiduría."},
             {"role": "user", "content": prompt},
         ],
         temperature=0.8, # controla la creatividad
@@ -92,28 +94,35 @@ def generar_cuento(personajes, memoria="", trama="", maximo=500):
     )
     return respuesta.choices[0].message.content
 
-def generar_audio_cuento(fragmentos, personajes_dict):
+async def generar_audio_cuento(fragmentos, personajes_dict):
     """Genera los archivos de audio para cada fragmento del cuento"""
     archivos_wav = []  # Lista para guardar las rutas de los archivos generados
-    
+    tareas = []
+
     for i, fragmento in enumerate(fragmentos):
         archivo_salida = f"audios/parte_{i+1}.wav"
         archivos_wav.append(archivo_salida)
         
         if not fragmento.personaje:
             # es narración
-            generar_audio("voces/narrator.mp3", fragmento.contenido, archivo_salida)
+            tareas.append(asyncio.create_task(generar_audio("voces/narrator.mp3", fragmento.contenido, archivo_salida)))
+            #generar_audio("voces/narrator.mp3", fragmento.contenido, archivo_salida)
         elif fragmento.personaje and fragmento.personaje not in personajes_dict:
             # el personaje puede no haber sido agregado por el usuario; tenemos que inventarle una voz
             print("⚠️ El personaje", fragmento.personaje, "no se ha agregado. Le inventaremos una voz.")
-            voz = eligir_voz(f"{fragmento.personaje} dice {fragmento.contenido}", personajes)
+            voz = eligir_voz(f"{fragmento.personaje} dice {fragmento.contenido}", personajes_dict)
             personajes_dict[fragmento.personaje] = Personaje(nombre=fragmento.personaje, edad=100, descripcion="", rol="secundario", voz=voz)
-            generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)
+            tareas.append(asyncio.create_task(generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)))
+            #generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)
         else:
             # es un personaje que ya existe
             voz = personajes_dict[fragmento.personaje].voz
-            generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)
+            tareas.append(asyncio.create_task(generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)))
+            #generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)
     
+    # Generar los audios en paralelo
+    print("🔊 Generando audios en paralelo...")
+    await asyncio.gather(*tareas)
     # Unir todos los archivos de audio con silencios entre ellos
     print("🔊 Uniendo archivos de audio...")
     merger = AudioMerger(silence_duration=1.0)  # 1 segundo de silencio entre fragmentos
@@ -121,10 +130,29 @@ def generar_audio_cuento(fragmentos, personajes_dict):
     duracion = AudioMerger.get_audio_length("audios/cuento_completo.wav")
     print(f"✅ Audio generado! Duración total: {duracion:.1f} segundos")
 
-if __name__ == "__main__":
+async def inicio():
     print("Generador de Cuentos con IA ✨")
-    personajes = obtener_personajes()
+    personajes = [
+        Personaje(
+            nombre="Doggy",
+            edad=20,
+            descripcion="Es un perro muy inteligente y valiente, siempre dispuesto a ayudar a sus amigos.",
+            rol="villano",
+            voz="human_male.mp3"
+        ),
+        Personaje(
+            nombre="Gatito",
+            edad=23,
+            descripcion="Es un gato muy astuto y travieso, siempre metiendose en problemas.",
+            rol="heroe",
+            voz="object_female.mp3"
+        )
+    ]
+    #personajes = obtener_personajes()
     personajes_dict = {p.nombre: p for p in personajes}
+    trama = "tuvieron una aventura en el rio."
+    cuento = generar_cuento(personajes, "", trama)
+    """
     cuento = ""
     while True:
         trama = input("Escribe la trama de tu cuento (o escribe 'salir' para terminar):")
@@ -134,9 +162,13 @@ if __name__ == "__main__":
         print(f"\n✨ Aqui esta la parte del cuento:\n{parte}")
         cuento += parte
 
+    """
     print("\n\n✨ Aqui esta el cuento completo:\n")
     print(cuento)
     fragmentos = dame_los_dialogos(cuento)
     print("\n\n✨ Aqui estan la historia estructurada del cuento:\n", fragmentos)
     print("**"*20)
-    generar_audio_cuento(fragmentos.fragmentos[0].eventos, personajes_dict)
+    await generar_audio_cuento(fragmentos.fragmentos[0].eventos, personajes_dict)
+
+if __name__ == "__main__":
+    asyncio.run(inicio())
