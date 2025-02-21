@@ -77,7 +77,7 @@ def generar_cuento(personajes, memoria="", trama="", maximo=500,final=False):
         maximo = None
         trama_ = "# A partir de esto, desarrolla un final para la historia."
     prompt = f"""
-    # La historia comienza con los siguientes personajes:
+    # La historia solo usa los siguientes personajes (no le cambies nunca los nombres):
     {texto_personajes}
 
     {trama_}
@@ -93,7 +93,7 @@ def generar_cuento(personajes, memoria="", trama="", maximo=500,final=False):
             {"role": "system", "content": "Eres un narrador muy creativo, te encanta escribir historias con mucho dialogo, siempre describiendo brevemente a los personajes primero. En tus historias los animales y objetos inanimados hablan con palabras humanas."},
             {"role": "user", "content": prompt},
         ],
-        temperature=0.8, # controla la creatividad
+        temperature=0.7, # controla la creatividad
         max_tokens=maximo # longitud maxima del cuento/trozo
     )
     return respuesta.choices[0].message.content
