@@ -82,9 +82,9 @@ def generar_cuento(personajes, memoria="", trama="", maximo=500):
 
     respuesta = cliente_viejo.chat.completions.create(
         #model="o3-mini-2025-01-31",
-        model="gpt-4o-2024-08-06",
+        model="gpt-4o-2024-11-20",
         messages=[
-            {"role": "system", "content": "Eres un narrador muy creativo, te encanta escribir historias con mucho dialogo, siempre describiendo brevemente a los personajes primero. En tus historias los animales y objetos inanimados hablan con palabras humanas."},
+            {"role": "system", "content": "Eres un narrador muy creativo, te encanta escribir historias con mucho dialogo, siempre describiendo brevemente a los personajes primero y luego describiendo la escena entre 2-3 dialogos. En tus historias los animales y objetos inanimados hablan con palabras humanas llenas de sabiduría."},
             {"role": "user", "content": prompt},
         ],
         temperature=0.8, # controla la creatividad
