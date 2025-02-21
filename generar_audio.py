@@ -1,4 +1,4 @@
-from utils.remote_expose import exposeRemote, exposeRemoteAsync
+from utils.remote_expose import exposeRemote
 from ia import cliente
 
 import config, os, replicate, json
@@ -37,9 +37,9 @@ def eligir_voz(prompt="", personajes_dict=None):
     return respuesta.archivo
 
 async def generar_audio(voz:str = "voces/narrator.mp3", texto:str = "Hola", archivo:str = "output.wav"):
-    async with exposeRemoteAsync(voz) as narrador:
+    with exposeRemote(voz) as narrador:
         try:
-            output = await replicate.async_run(
+            output = replicate.run(
                 "ttsds/openvoice_2:795fe9c3fc9d3d4cfac1ca97d8c8d33b522b42068daec53ab3c74f775dd506c8",
                 #"chenxwh/openvoice:d548923c9d7fc9330a3b7c7f9e2f91b2ee90c83311a351dfcd32af353799223d",
                 input={
@@ -52,7 +52,7 @@ async def generar_audio(voz:str = "voces/narrator.mp3", texto:str = "Hola", arch
                 }
             )
         except Exception as e:
-            output = await replicate.async_run(
+            output = replicate.run(
                 "ttsds/openvoice_2:795fe9c3fc9d3d4cfac1ca97d8c8d33b522b42068daec53ab3c74f775dd506c8",
                 #"chenxwh/openvoice:d548923c9d7fc9330a3b7c7f9e2f91b2ee90c83311a351dfcd32af353799223d",
                 input={
