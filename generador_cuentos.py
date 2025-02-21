@@ -105,24 +105,24 @@ async def generar_audio_cuento(fragmentos, personajes_dict):
         
         if not fragmento.personaje:
             # es narración
-            tareas.append(asyncio.create_task(generar_audio("voces/narrator.mp3", fragmento.contenido, archivo_salida)))
-            #generar_audio("voces/narrator.mp3", fragmento.contenido, archivo_salida)
+            #tareas.append(asyncio.create_task(generar_audio("voces/narrator.mp3", fragmento.contenido, archivo_salida)))
+            await generar_audio("voces/narrator.mp3", fragmento.contenido, archivo_salida)
         elif fragmento.personaje and fragmento.personaje not in personajes_dict:
             # el personaje puede no haber sido agregado por el usuario; tenemos que inventarle una voz
             print("⚠️ El personaje", fragmento.personaje, "no se ha agregado. Le inventaremos una voz.")
             voz = eligir_voz(f"{fragmento.personaje} dice {fragmento.contenido}", personajes_dict)
             personajes_dict[fragmento.personaje] = Personaje(nombre=fragmento.personaje, edad=100, descripcion="", rol="secundario", voz=voz)
-            tareas.append(asyncio.create_task(generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)))
-            #generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)
+            #tareas.append(asyncio.create_task(generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)))
+            await generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)
         else:
             # es un personaje que ya existe
             voz = personajes_dict[fragmento.personaje].voz
-            tareas.append(asyncio.create_task(generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)))
-            #generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)
+            #tareas.append(asyncio.create_task(generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)))
+            await generar_audio("voces/"+voz, fragmento.contenido, archivo_salida)
     
     # Generar los audios en paralelo
     print("🔊 Generando audios en paralelo...")
-    await asyncio.gather(*tareas)
+    #await asyncio.gather(*tareas)
     # Unir todos los archivos de audio con silencios entre ellos
     print("🔊 Uniendo archivos de audio...")
     merger = AudioMerger(silence_duration=1.0)  # 1 segundo de silencio entre fragmentos
