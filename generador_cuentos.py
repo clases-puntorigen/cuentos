@@ -65,18 +65,24 @@ def dame_los_dialogos(texto):
     )
     return respuesta
 
-def generar_cuento(personajes, memoria="", trama="", maximo=500):
+def generar_cuento(personajes, memoria="", trama="", maximo=500,final=False):
     texto_personajes = ""
     for personaje in personajes:
         texto_personajes += f"{personaje.nombre} es un {personaje.rol} de {personaje.edad} años. {personaje.descripcion}\n"
 
     #texto_personajes = "\n".join([f"{p.nombre} es un {p.rol} de {p.edad} años. {p.descripcion}\n" for p in personajes])
-    prompt = f"""
-    # La historia comienza con los siguientes personajes:
-    {texto_personajes}
-
+    trama_ = f"""
     # A partir de esto, desarrolla la historia basada en la siguiente trama:
     {trama}
+    """
+    if final:
+        maximo = None
+        trama_ = "# A partir de esto, desarrolla un final para la historia."
+    prompt = f"""
+    # La historia solo usa los siguientes personajes (no le cambies nunca los nombres):
+    {texto_personajes}
+
+    {trama_}
 
     # El cuento comienza así:
     {memoria}
@@ -134,35 +140,39 @@ async def inicio():
     print("Generador de Cuentos con IA ✨")
     personajes = [
         Personaje(
-            nombre="Doggy",
-            edad=20,
-            descripcion="Es un perro muy inteligente y valiente, siempre dispuesto a ayudar a sus amigos.",
+            nombre="Fenix",
+            edad=150,
+            descripcion="un ave de gran poder,que contiene la habilidad de poder revivir,sus plumas de colores variados entre los que se encuentra el rojo, naranja, y amarillo,",
             rol="villano",
             voz="human_male.mp3"
         ),
         Personaje(
-            nombre="Gatito",
+            nombre="Jon",
             edad=23,
-            descripcion="Es un gato muy astuto y travieso, siempre metiendose en problemas.",
+            descripcion="Un hombre con fuerza sobrehumana,experto en batallas contra criaturas miticas, su cuerpo esta lleno de cicatrices por las batallas,su estilo de batalla es cuerpo a cuerpo",
             rol="heroe",
             voz="object_female.mp3"
         )
     ]
     #personajes = obtener_personajes()
     personajes_dict = {p.nombre: p for p in personajes}
-    trama = "tuvieron una aventura en el rio."
+    #trama = "Fénix, un villano con el poder de renacer, busca destruir el mundo, mientras Jon, un héroe con fuerza sobrehumana y experiencia en batallas míticas, lucha para detenerlo y salvar a la humanidad."
     cuento = generar_cuento(personajes, "", trama)
-    """
     cuento = ""
     while True:
         trama = input("Escribe la trama de tu cuento (o escribe 'salir' para terminar):")
         if trama.lower() == "salir":
-            break
+            if cuento.strip():
+                print("\n✨ Realizando el final de la historia ✨\n")
+                parte = generar_cuento(personajes=personajes, memoria=cuento,final=True) # aqui es true porque debe generar el final
+                print(parte)
+                cuento += parte 
+                break
         parte = generar_cuento(personajes, cuento, trama)
         print(f"\n✨ Aqui esta la parte del cuento:\n{parte}")
         cuento += parte
 
-    """
+    
     print("\n\n✨ Aqui esta el cuento completo:\n")
     print(cuento)
     fragmentos = dame_los_dialogos(cuento)
